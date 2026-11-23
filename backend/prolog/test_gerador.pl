@@ -256,7 +256,7 @@ test(bate_com_a_solucao_do_exemplo, true(V == Esperado)) :-
 test(ignora_casas_ja_marcadas, true(Marca == 0)) :-
     puzzle_exemplo(P),
     M = [[1, 2, 2, 1, 2, 2],
-         [2, 2, 1, 2, 2, 1],
+         [2, 2, 1, 2, 0, 1],
          [0, 0, 0, 0, 0, 0],
          [0, 0, 0, 0, 0, 0],
          [0, 0, 0, 0, 0, 0],
@@ -276,3 +276,99 @@ test(bate_com_a_solucao_gerada, [forall(member(Nivel, [facil, medio, dificil]))]
     motivo_coerente(Dica, P, M).
 
 :- end_tests(dica).
+
+% Refaz os passos de resolver_com_dicas/3 a partir de Marcas0, conferindo
+% cada dica contra a solução e contra as marcas do momento, e devolve as
+% marcas do fim. A lista de passos vem primeiro para a indexação escolher
+% a cláusula sem deixar ponto de escolha.
+seguir_passos([], _, _, Marcas, Marcas).
+seguir_passos([Dica | Passos], Puzzle, Solucao, Marcas0, Marcas) :-
+    Dica = [R, C, V, _],
+    valor(Marcas0, R, C, 0),
+    valor(Solucao, R, C, V),
+    motivo_coerente(Dica, Puzzle, Marcas0),
+    dica:marcar(Marcas0, R, C, V, Marcas1),
+    seguir_passos(Passos, Puzzle, Solucao, Marcas1, Marcas).
+
+% Marca de jogador que corresponde a cada valor da solução.
+marca_da_solucao(1, 1).
+marca_da_solucao(0, 2).
+
+% Toda casa termina marcada de acordo com a solução (sensor fica 0).
+completo(puzzle(_, _, _, _, Sensores), Solucao, Marcas) :-
+    forall(( nth0(R, Solucao, Linha), nth0(C, Linha, V) ),
+           (   memberchk([R, C, _], Sensores)
+           ->  valor(Marcas, R, C, 0)
+           ;   marca_da_solucao(V, Marca),
+               valor(Marcas, R, C, Marca)
+           )).
+
+:- begin_tests(resolver_com_dicas).
+
+test(exemplo_tem_um_passo_por_casa_aberta, true(N == 31)) :-
+    puzzle_exemplo(P),
+    marcas_vazias(6, 6, M),
+    resolver_com_dicas(P, M, Passos),
+    length(Passos, N).
+
+test(exemplo_cada_passo_certo_e_explicado) :-
+    puzzle_exemplo(P),
+    solucao_exemplo(S),
+    marcas_vazias(6, 6, M),
+    resolver_com_dicas(P, M, Passos),
+    seguir_passos(Passos, P, S, M, Final),
+    completo(P, S, Final).
+
+test(gerado_resolvido_so_com_dicas, [forall(between(1, 3, _))]) :-
+    gerar(facil, P),
+    marcas_vazias(6, 6, M),
+    once(resolver(P, M, S)),
+    resolver_com_dicas(P, M, Passos),
+    seguir_passos(Passos, P, S, M, Final),
+    completo(P, S, Final).
+
+% As duas primeiras linhas já marcadas; (1, 4) é sensor e fica 0.
+test(continua_de_onde_o_jogador_parou, true(N == 20)) :-
+    puzzle_exemplo(P),
+    solucao_exemplo(S),
+    M = [[1, 2, 2, 1, 2, 2],
+         [2, 2, 1, 2, 0, 1],
+         [0, 0, 0, 0, 0, 0],
+         [0, 0, 0, 0, 0, 0],
+         [0, 0, 0, 0, 0, 0],
+         [0, 0, 0, 0, 0, 0]],
+    resolver_com_dicas(P, M, Passos),
+    seguir_passos(Passos, P, S, M, Final),
+    completo(P, S, Final),
+    length(Passos, N).
+
+test(tabuleiro_completo_nao_tem_passos, true(Passos == [])) :-
+    resolver_com_dicas(puzzle(2, 3, [2, 1], [1, 1, 1], []),
+                       [[1, 2, 1], [2, 1, 2]], Passos).
+
+:- end_tests(resolver_com_dicas).
+
+:- begin_tests(dificuldade).
+
+% Com sensor em toda casa livre, cada linha só tem servidores abertos: a
+% carga da linha força tudo, sem combinar regras.
+test(todas_as_pistas_e_facil, [forall(between(1, 3, _)), true(N == facil)]) :-
+    solucao_aleatoria(6, 6, G),
+    derivar_pistas(G, P),
+    dificuldade(P, N).
+
+% 4 passos combinados em 31 (13%).
+test(exemplo_e_medio, true(N == medio)) :-
+    puzzle_exemplo(P),
+    dificuldade(P, N).
+
+% 1 passo combinado em 6 (17%).
+test(combinado_e_dificil, true(N == dificil)) :-
+    dificuldade(puzzle(2, 3, [2, 1], [1, 1, 1], []), N).
+
+test(gerado_tem_nivel, [forall(between(1, 3, _))]) :-
+    gerar(facil, P),
+    dificuldade(P, N),
+    memberchk(N, [facil, medio, dificil]).
+
+:- end_tests(dificuldade).

@@ -20,21 +20,30 @@
         refrigeracao(R, C)    o servidor vizinho, na casa (R, C)
         combinado             foi preciso juntar todas as regras
 
+    Aplicando dicas em sequência, o próprio Prolog resolve o puzzle passo a
+    passo (resolver_com_dicas/3). Contar quantos passos precisaram do caso
+    `combinado` mede a dificuldade pelo raciocínio (dificuldade/2), e não
+    só pelo tamanho da grade.
+
     COMO TESTAR NO TERMINAL
     -----------------------
         $ swipl backend/prolog/dica.pl
         ?- rack:puzzle_exemplo(P), length(M, 6),
            maplist([L]>>(length(L, 6), maplist(=(0), L)), M),
            dica(P, M, D).
+        ?- rack:puzzle_exemplo(P), dificuldade(P, N).
 */
 
 :- module(dica,
-          [ dica/3                   % +Puzzle, +Marcas, -Dica
+          [ dica/3,                  % +Puzzle, +Marcas, -Dica
+            resolver_com_dicas/3,    % +Puzzle, +Marcas, -Passos
+            dificuldade/2            % +Puzzle, -Nivel
           ]).
 
 :- use_module(library(clpfd)).
 :- use_module(library(lists)).
 :- use_module(library(apply)).
+:- use_module(library(aggregate)).
 :- use_module(rack).
 
 
@@ -138,6 +147,15 @@ marcar(Marcas0, R, C, Valor, Marcas) :-
 valor_marca(1, 1).
 valor_marca(0, 2).
 
+%!  marcas_vazias(+Puzzle, -Marcas) is det.
+marcas_vazias(puzzle(L, C, _, _, _), Marcas) :-
+    length(Marcas, L),
+    maplist(linha_vazia(C), Marcas).
+
+linha_vazia(C, Linha) :-
+    length(Linha, C),
+    maplist(=(0), Linha).
+
 
 /* =========================================================================
    3. AS REGRAS, UMA DE CADA VEZ
@@ -220,3 +238,58 @@ motivo(linha(R, _), linha(R)).
 motivo(coluna(C, _), coluna(C)).
 motivo(sensor(R, C, _), sensor(R, C)).
 motivo(refrigeracao(_, _, R2, C2), refrigeracao(R2, C2)).
+
+
+/* =========================================================================
+   4. RESOLVER SÓ COM DICAS E MEDIR A DIFICULDADE
+   ========================================================================= */
+
+%!  resolver_com_dicas(+Puzzle, +Marcas, -Passos) is det.
+%
+%   Passos é a sequência de dicas que leva das Marcas até o tabuleiro
+%   completo, como se o jogador seguisse cada dica. Cada passo marca a casa
+%   da dica e chama a si mesmo com as marcas NOVAS (recursão no lugar de
+%   laço; nada é alterado no lugar). Quando não há mais dica, a lista acaba.
+%
+%   O "Se -> Então ; Senão" garante uma resposta só: havendo dica, ela é
+%   seguida; o ramo da lista vazia não é tentado no backtracking.
+resolver_com_dicas(Puzzle, Marcas, Passos) :-
+    (   dica(Puzzle, Marcas, Dica)
+    ->  Dica = [R, C, V, _],
+        marcar(Marcas, R, C, V, MarcasSeguintes),
+        Passos = [Dica | Resto],
+        resolver_com_dicas(Puzzle, MarcasSeguintes, Resto)
+    ;   Passos = []
+    ).
+
+%!  porcentagem_combinada(?Nivel, ?Maximo) is nondet.
+%
+%   Qual porcentagem dos passos pode precisar do caso `combinado` em cada
+%   nível. Fácil é o que dá para resolver só com dicas de uma regra; acima
+%   do último limiar, o puzzle é difícil. Usamos a PROPORÇÃO e não o número
+%   de passos combinados porque esse número cresce com a grade: medindo os
+%   puzzles gerados, um 6x6 teve de 0 a 4 passos combinados em 26, um 8x8
+%   de 8 a 13 em 54 e um 10x10 de 14 a 16 em 80.
+porcentagem_combinada(facil, 0).
+porcentagem_combinada(medio, 15).
+
+%!  dificuldade(+Puzzle, -Nivel) is det.
+%
+%   Resolve o puzzle do zero só com dicas e mede o nível pela proporção de
+%   passos em que foi preciso combinar as regras.
+dificuldade(Puzzle, Nivel) :-
+    marcas_vazias(Puzzle, Marcas),
+    resolver_com_dicas(Puzzle, Marcas, Passos),
+    length(Passos, Total),
+    aggregate_all(count, member([_, _, _, combinado], Passos), Combinados),
+    nivel_por_combinados(Combinados, Total, Nivel).
+
+%   Os fatos de porcentagem_combinada/2 estão do mais fácil para o mais
+%   difícil, então o primeiro limiar que cabe é o nível certo. A conta fica
+%   em inteiros: Combinados/Total =< Maximo/100.
+nivel_por_combinados(Combinados, Total, Nivel) :-
+    (   porcentagem_combinada(Nivel0, Maximo),
+        Combinados * 100 =< Maximo * Total
+    ->  Nivel = Nivel0
+    ;   Nivel = dificil
+    ).
