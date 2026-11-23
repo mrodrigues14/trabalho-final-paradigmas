@@ -9,6 +9,11 @@
     2. derivar_pistas/2: a partir dessa grade, calcula as cargas de cada
        linha e coluna e põe um sensor em toda casa livre.
 
+    3. enxugar/2: retira sensores em ordem aleatória, um por vez, e só
+       aceita a retirada se o puzzle continuar com solução única.
+
+    gerar/2 junta as três etapas com o tamanho de cada nível.
+
     As regras do jogo NÃO são reescritas aqui: elas vêm de rack_restricoes/2
     (rack.pl). O gerador só decide em que ordem e com que valores rotular.
 
@@ -17,11 +22,16 @@
         $ swipl backend/prolog/gerador.pl
         ?- solucao_aleatoria(6, 6, G), maplist(writeln, G).
         ?- solucao_aleatoria(6, 6, G), derivar_pistas(G, P), rack:imprimir(P, G).
+        ?- time(gerar(dificil, P)), once(rack:resolver(P, _, S)), rack:imprimir(P, S).
 */
 
 :- module(gerador,
           [ solucao_aleatoria/3,     % +Linhas, +Colunas, -Grade
-            derivar_pistas/2         % +Grade, -Puzzle
+            derivar_pistas/2,        % +Grade, -Puzzle
+            enxugar/2,               % +Puzzle0, -Puzzle
+            enxugar/3,               % +Puzzle0, +Minimo, -Puzzle
+            gerar/2,                 % +Nivel, -Puzzle
+            tamanho/3                % ?Nivel, ?Linhas, ?Colunas
           ]).
 
 :- use_module(library(clpfd)).
@@ -150,3 +160,94 @@ casa_em_volta(Grade, R, C, X) :-
     nth0(C1, Linha, X),
     abs(C1 - C) =< 1,
     R1-C1 \== R-C.
+
+
+/* =========================================================================
+   3. RETIRADA DE SENSORES
+   ========================================================================= */
+
+%!  enxugar(+Puzzle0, -Puzzle) is det.
+%
+%   Retira todos os sensores que conseguir, mantendo a solução única.
+enxugar(Puzzle0, Puzzle) :-
+    enxugar(Puzzle0, 0, Puzzle).
+
+%!  enxugar(+Puzzle0, +Minimo, -Puzzle) is det.
+%
+%   Tenta retirar cada sensor, em ordem aleatória, sem deixar o puzzle com
+%   menos de Minimo sensores. foldl/4 passa o puzzle de uma tentativa para
+%   a próxima: cada passo devolve um puzzle NOVO, nada é alterado no lugar.
+%
+%   A ideia é a mesma do dig_holes/4 do sudoku.pl do modelo do professor.
+enxugar(Puzzle0, Minimo, Puzzle) :-
+    Puzzle0 = puzzle(_, _, _, _, Sensores),
+    random_permutation(Sensores, Ordem),
+    foldl(tentar_retirar(Minimo), Ordem, Puzzle0, Puzzle).
+
+%!  tentar_retirar(+Minimo, +Sensor, +Puzzle0, -Puzzle) is det.
+%
+%   Puzzle é Puzzle0 sem Sensor, se o puzzle ainda tiver mais de Minimo
+%   sensores e a solução continuar única. Senão, Puzzle é o próprio Puzzle0.
+%   O "Se -> Então ; Senão" escolhe entre os dois sem deixar ponto de
+%   escolha: tentar_retirar/4 sempre dá uma resposta só.
+tentar_retirar(Minimo, Sensor, Puzzle0, Puzzle) :-
+    Puzzle0 = puzzle(L, C, CargasLinha, CargasColuna, Sensores0),
+    Candidato = puzzle(L, C, CargasLinha, CargasColuna, Sensores),
+    (   length(Sensores0, N),
+        N > Minimo,
+        selectchk(Sensor, Sensores0, Sensores),
+        unicidade_comprovada(Candidato)
+    ->  Puzzle = Candidato
+    ;   Puzzle = Puzzle0
+    ).
+
+%!  limite_inferencias(?N) is det.
+%
+%   Orçamento de cada checagem de unicidade, em inferências do Prolog.
+limite_inferencias(500000).
+
+%!  unicidade_comprovada(+Puzzle) is semidet.
+%
+%   Puzzle tem solução única E o resolvedor conseguiu provar isso dentro do
+%   orçamento. contar_solucoes/3 com limite 2 basta: não importa se são 2
+%   ou 2 mil soluções, só se é mais de uma. Em 10x10 com poucos sensores, provar que não existe uma
+%   segunda solução pode levar dezenas de segundos. Quando o orçamento
+%   estoura, a checagem falha e o sensor fica: o puzzle nunca perde a
+%   unicidade, só termina com uma pista a mais. Contar inferências (e não
+%   segundos) deixa o resultado igual em qualquer máquina.
+unicidade_comprovada(Puzzle) :-
+    limite_inferencias(Limite),
+    call_with_inference_limit(contar_solucoes(Puzzle, 2, N), Limite, Resultado),
+    Resultado \== inference_limit_exceeded,
+    N =:= 1.
+
+
+/* =========================================================================
+   4. GERAR POR NÍVEL
+   ========================================================================= */
+
+%!  tamanho(?Nivel, ?Linhas, ?Colunas) is nondet.
+tamanho(facil,   6,  6).
+tamanho(medio,   8,  8).
+tamanho(dificil, 10, 10).
+
+%!  sensores_minimos(?Nivel, ?N) is nondet.
+%
+%   Quantos sensores o enxugar/3 deixa no mínimo. Proporcionalmente, o
+%   fácil fica com mais pistas (10 em 36 casas) que o difícil (12 em 100).
+%   No difícil o mínimo também segura o tempo: com menos de 12 sensores, a
+%   checagem de unicidade quase sempre estoura o orçamento.
+sensores_minimos(facil,   10).
+sensores_minimos(medio,   10).
+sensores_minimos(dificil, 12).
+
+%!  gerar(+Nivel, -Puzzle) is det.
+%
+%   Puzzle é um puzzle novo, com solução única, no tamanho do Nivel.
+gerar(Nivel, Puzzle) :-
+    must_be(oneof([facil, medio, dificil]), Nivel),
+    tamanho(Nivel, L, C),
+    sensores_minimos(Nivel, Minimo),
+    solucao_aleatoria(L, C, Grade),
+    derivar_pistas(Grade, Puzzle0),
+    enxugar(Puzzle0, Minimo, Puzzle).
