@@ -1,4 +1,5 @@
 :- use_module(gerador).
+:- use_module(dica).
 :- use_module(rack).
 :- use_module(library(plunit)).
 :- use_module(library(clpfd)).
@@ -177,3 +178,101 @@ test(nivel_invalido, true(Recusado == easy)) :-
     catch(gerar(easy, _), error(Erro, _), arg(2, Erro, Recusado)).
 
 :- end_tests(gerar).
+
+% A solução do puzzle_exemplo/1 do rack.pl (a mesma do test_rack.pl).
+solucao_exemplo([[1, 0, 0, 1, 0, 0],
+                 [0, 0, 1, 0, 0, 1],
+                 [1, 0, 0, 0, 1, 0],
+                 [0, 1, 0, 0, 0, 0],
+                 [0, 0, 0, 1, 0, 1],
+                 [1, 0, 1, 0, 0, 0]]).
+
+valor(Grade, R, C, X) :-
+    nth0(R, Grade, Linha),
+    nth0(C, Linha, X).
+
+% O motivo aponta para uma regra que passa pela casa da dica.
+motivo_coerente([R, C, V, Motivo], Puzzle, Marcas) :-
+    coerente(Motivo, R, C, V, Puzzle, Marcas).
+
+% O motivo vem no primeiro argumento para a indexação escolher a cláusula
+% sem deixar ponto de escolha.
+coerente(linha(R), R, _, _, _, _).
+coerente(coluna(C), _, C, _, _, _).
+coerente(sensor(SR, SC), R, C, _, puzzle(_, _, _, _, Sensores), _) :-
+    memberchk([SR, SC, _], Sensores),
+    abs(SR - R) =< 1,
+    abs(SC - C) =< 1.
+coerente(refrigeracao(R2, C2), R, C, 0, _, Marcas) :-
+    abs(R2 - R) + abs(C2 - C) =:= 1,
+    valor(Marcas, R2, C2, 1).
+coerente(combinado, _, _, _, _, _).
+
+:- begin_tests(dica).
+
+test(por_linha, true(D == [0, 0, 0, linha(0)])) :-
+    dica(puzzle(1, 3, [0], [0, 0, 0], []), [[0, 0, 0]], D).
+
+test(por_coluna, true(D == [0, 1, 0, coluna(1)])) :-
+    marcas_vazias(3, 2, M),
+    dica(puzzle(3, 2, [1, 0, 1], [2, 0], []), M, D).
+
+test(por_sensor, true(D == [0, 1, 0, sensor(0, 0)])) :-
+    marcas_vazias(3, 3, M),
+    dica(puzzle(3, 3, [1, 0, 1], [0, 1, 1], [[0, 0, 0]]), M, D).
+
+test(por_refrigeracao, true(D == [0, 0, 0, refrigeracao(1, 0)])) :-
+    dica(puzzle(4, 2, [1, 1, 0, 1], [2, 1], []),
+         [[0, 0],
+          [1, 0],
+          [0, 0],
+          [0, 0]], D).
+
+% Nenhuma regra sozinha força nada: a linha 0 pede 2 servidores em 3
+% casas, e só a refrigeração junto com ela obriga o padrão 1 0 1.
+test(combinado, true(D == [0, 0, 1, combinado])) :-
+    marcas_vazias(2, 3, M),
+    dica(puzzle(2, 3, [2, 1], [1, 1, 1], []), M, D).
+
+test(tabuleiro_completo, fail) :-
+    dica(puzzle(2, 3, [2, 1], [1, 1, 1], []), [[1, 2, 1], [2, 1, 2]], _).
+
+test(marcas_em_contradicao, fail) :-
+    puzzle_exemplo(P),
+    dica(P, [[2, 0, 0, 0, 0, 0],
+             [0, 0, 0, 0, 0, 0],
+             [0, 0, 0, 0, 0, 0],
+             [0, 0, 0, 0, 0, 0],
+             [0, 0, 0, 0, 0, 0],
+             [0, 0, 0, 0, 0, 0]], _).
+
+test(bate_com_a_solucao_do_exemplo, true(V == Esperado)) :-
+    puzzle_exemplo(P),
+    marcas_vazias(6, 6, M),
+    dica(P, M, [R, C, V, _]),
+    solucao_exemplo(S),
+    valor(S, R, C, Esperado).
+
+test(ignora_casas_ja_marcadas, true(Marca == 0)) :-
+    puzzle_exemplo(P),
+    M = [[1, 2, 2, 1, 2, 2],
+         [2, 2, 1, 2, 2, 1],
+         [0, 0, 0, 0, 0, 0],
+         [0, 0, 0, 0, 0, 0],
+         [0, 0, 0, 0, 0, 0],
+         [0, 0, 0, 0, 0, 0]],
+    dica(P, M, [R, C, _, _]),
+    valor(M, R, C, Marca).
+
+test(bate_com_a_solucao_gerada, [forall(member(Nivel, [facil, medio, dificil]))]) :-
+    gerar(Nivel, P),
+    P = puzzle(L, C, _, _, Sensores),
+    marcas_vazias(L, C, M),
+    once(resolver(P, M, S)),
+    dica(P, M, Dica),
+    Dica = [R, Col, V, _],
+    valor(S, R, Col, V),
+    \+ memberchk([R, Col, _], Sensores),
+    motivo_coerente(Dica, P, M).
+
+:- end_tests(dica).
