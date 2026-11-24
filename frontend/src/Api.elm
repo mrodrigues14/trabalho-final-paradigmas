@@ -1,168 +1,278 @@
 module Api exposing
-    ( Difficulty(..)
-    , Hint
-    , difficultyLabel
-    , generate
-    , hint
-    , solve
+    ( Verificacao(..)
+    , codificarPedido
+    , dicaDecoder
+    , gerar
+    , pedirDica
+    , puzzleDecoder
+    , resolver
+    , solucaoDecoder
+    , verificacaoDecoder
+    , verificar
     )
 
-{-| Comunicação com o backend (FastAPI + Prolog).
+{-| Comunicação com o backend do Rack (FastAPI + Prolog).
 
-Em Elm, uma requisição HTTP não "acontece" quando chamamos uma função. As
-funções deste módulo devolvem um `Cmd msg`: uma DESCRIÇÃO do efeito que
-queremos. Quem executa o efeito é o runtime do Elm; quando a resposta chega,
-ele chama nosso `update` com a mensagem que indicamos (por exemplo,
-`GotPuzzle resultado`). É assim que o Elm mantém todas as funções puras.
+O formato do JSON segue o contrato da API (PLANO.md, seção 3). Este módulo
+só traduz entre esse formato e os tipos do `Rack`; nenhuma regra do jogo
+mora aqui.
 
-As URLs começam com `/api/...`. Em desenvolvimento, o Vite repassa essas
-requisições para o backend em <http://localhost:8000> (veja vite.config.js).
+Toda resposta chega como `Result String a`: a mensagem de erro já vem pronta
+para a tela, inclusive o `detail` dos erros 422 do backend.
 
 -}
 
 import Http
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
-import Sudoku exposing (Board)
+import Rack exposing (Casa(..), Dica, Dificuldade(..), Marca(..), Motivo(..), Posicao, Puzzle)
 
 
-type Difficulty
-    = Easy
-    | Medium
-    | Hard
-
-
-difficultyLabel : Difficulty -> String
-difficultyLabel difficulty =
-    case difficulty of
-        Easy ->
-            "Fácil"
-
-        Medium ->
-            "Médio"
-
-        Hard ->
-            "Difícil"
-
-
-{-| Nome usado pela API (e pelo Prolog: são os átomos easy/medium/hard).
+{-| Resposta de `/api/check`: ou as marcas ainda levam a uma solução, ou
+estas casas marcadas tornam o puzzle impossível.
 -}
-difficultyToString : Difficulty -> String
-difficultyToString difficulty =
-    case difficulty of
-        Easy ->
-            "easy"
-
-        Medium ->
-            "medium"
-
-        Hard ->
-            "hard"
-
-
-{-| Um _record_ (registro): um conjunto de campos com nome. O `type alias`
-também cria automaticamente uma função construtora `Hint : Int -> Int -> Int
--> Hint`, que usamos no decoder abaixo.
--}
-type alias Hint =
-    { row : Int
-    , col : Int
-    , value : Int
-    }
+type Verificacao
+    = SemContradicao
+    | Contradicao (List Posicao)
 
 
 
 -- REQUISIÇÕES
---
--- Todas recebem uma função `toMsg` que diz como embrulhar o resultado numa
--- mensagem. `Result String a` é: ou `Ok valor`, ou `Err mensagemDeErro`.
 
 
-generate : Difficulty -> (Result String Board -> msg) -> Cmd msg
-generate difficulty toMsg =
+gerar : Dificuldade -> (Result String Puzzle -> msg) -> Cmd msg
+gerar dificuldade aoResponder =
     Http.post
         { url = "/api/generate"
-        , body =
-            Http.jsonBody
-                (Encode.object [ ( "difficulty", Encode.string (difficultyToString difficulty) ) ])
-        , expect = expectJson toMsg boardDecoder
+        , body = Http.jsonBody (Encode.object [ ( "difficulty", Encode.string (dificuldadeParaApi dificuldade) ) ])
+        , expect = esperarJson aoResponder (Decode.field "puzzle" puzzleDecoder)
         }
 
 
-solve : Board -> (Result String Board -> msg) -> Cmd msg
-solve board toMsg =
-    Http.post
-        { url = "/api/solve"
-        , body = Http.jsonBody (encodeBoard board)
-        , expect = expectJson toMsg boardDecoder
-        }
+resolver : Puzzle -> (Result String (List (List Int)) -> msg) -> Cmd msg
+resolver =
+    postarPuzzle "/api/solve" solucaoDecoder
 
 
-hint : Board -> (Result String Hint -> msg) -> Cmd msg
-hint board toMsg =
-    Http.post
-        { url = "/api/hint"
-        , body = Http.jsonBody (encodeBoard board)
-        , expect = expectJson toMsg hintDecoder
-        }
+pedirDica : Puzzle -> (Result String Dica -> msg) -> Cmd msg
+pedirDica =
+    postarPuzzle "/api/hint" dicaDecoder
 
 
-
--- JSON
---
--- Elm não converte JSON em valores "magicamente". Escrevemos DECODERS, que
--- descrevem a forma esperada do JSON. Se o JSON vier diferente, a decodificação
--- falha com uma mensagem de erro, em vez de gerar um valor inválido.
+verificar : Puzzle -> (Result String Verificacao -> msg) -> Cmd msg
+verificar =
+    postarPuzzle "/api/check" verificacaoDecoder
 
 
-{-| Envia `{"board": [[5,3,0,...], ...]}`.
+{-| As três rotas que recebem o tabuleiro têm o mesmo corpo; só mudam a URL
+e o formato da resposta.
 -}
-encodeBoard : Board -> Encode.Value
-encodeBoard board =
+postarPuzzle : String -> Decoder a -> Puzzle -> (Result String a -> msg) -> Cmd msg
+postarPuzzle url decoder puzzle aoResponder =
+    Http.post
+        { url = url
+        , body = Http.jsonBody (codificarPedido puzzle)
+        , expect = esperarJson aoResponder decoder
+        }
+
+
+dificuldadeParaApi : Dificuldade -> String
+dificuldadeParaApi dificuldade =
+    case dificuldade of
+        Facil ->
+            "easy"
+
+        Medio ->
+            "medium"
+
+        Dificil ->
+            "hard"
+
+
+
+-- ENVIO
+
+
+{-| `{"puzzle": {...}, "marks": [[...]]}`
+-}
+codificarPedido : Puzzle -> Encode.Value
+codificarPedido puzzle =
     Encode.object
-        [ ( "board", Encode.list (Encode.list Encode.int) (Sudoku.toLists board) ) ]
+        [ ( "puzzle", codificarPuzzle puzzle )
+        , ( "marks", Encode.array (Encode.array (marcaParaApi >> Encode.int)) puzzle.casas )
+        ]
 
 
-{-| Lê `{"board": [[...], ...]}`. Decoders se combinam como peças de Lego:
-`Decode.list (Decode.list Decode.int)` é "uma lista de listas de inteiros".
+codificarPuzzle : Puzzle -> Encode.Value
+codificarPuzzle puzzle =
+    Encode.object
+        [ ( "rows", Encode.int puzzle.linhas )
+        , ( "cols", Encode.int puzzle.colunas )
+        , ( "rowCounts", Encode.array Encode.int puzzle.cargasLinha )
+        , ( "colCounts", Encode.array Encode.int puzzle.cargasColuna )
+        , ( "sensors", Encode.list codificarSensor (Rack.sensores puzzle) )
+        ]
+
+
+codificarSensor : ( Posicao, Int ) -> Encode.Value
+codificarSensor ( { linha, coluna }, numero ) =
+    Encode.list Encode.int [ linha, coluna, numero ]
+
+
+{-| 0 = sem marca, 1 = servidor, 2 = livre. A casa de sensor vai como 0,
+como pede o contrato.
 -}
-boardDecoder : Decoder Board
-boardDecoder =
-    Decode.field "board" (Decode.list (Decode.list Decode.int))
-        |> Decode.map Sudoku.fromLists
+marcaParaApi : Casa -> Int
+marcaParaApi casa =
+    case casa of
+        Sensor _ ->
+            0
+
+        Aberta SemMarca ->
+            0
+
+        Aberta Servidor ->
+            1
+
+        Aberta Livre ->
+            2
 
 
-{-| `Decode.map3` junta três decoders e passa os três resultados para a
-função `Hint` (o construtor do record).
+
+-- RECEBIMENTO
+
+
+puzzleDecoder : Decoder Puzzle
+puzzleDecoder =
+    Decode.map5 Rack.criar
+        (Decode.field "rows" Decode.int)
+        (Decode.field "cols" Decode.int)
+        (Decode.field "rowCounts" (Decode.list Decode.int))
+        (Decode.field "colCounts" (Decode.list Decode.int))
+        (Decode.field "sensors" (Decode.list sensorDecoder))
+
+
+{-| Um sensor é `[linha, coluna, número]`.
 -}
-hintDecoder : Decoder Hint
-hintDecoder =
-    Decode.map3 Hint
-        (Decode.field "row" Decode.int)
-        (Decode.field "col" Decode.int)
-        (Decode.field "value" Decode.int)
+sensorDecoder : Decoder ( Posicao, Int )
+sensorDecoder =
+    Decode.map2 Tuple.pair posicaoEmListaDecoder (Decode.index 2 Decode.int)
+
+
+{-| Os dois primeiros elementos de `[linha, coluna, ...]`.
+-}
+posicaoEmListaDecoder : Decoder Posicao
+posicaoEmListaDecoder =
+    Decode.map2 Posicao (Decode.index 0 Decode.int) (Decode.index 1 Decode.int)
+
+
+{-| `{"row": 2, "col": 3}`, dentro de um objeto maior.
+-}
+posicaoEmCamposDecoder : Decoder Posicao
+posicaoEmCamposDecoder =
+    Decode.map2 Posicao (Decode.field "row" Decode.int) (Decode.field "col" Decode.int)
+
+
+solucaoDecoder : Decoder (List (List Int))
+solucaoDecoder =
+    Decode.field "grid" (Decode.list (Decode.list Decode.int))
+
+
+dicaDecoder : Decoder Dica
+dicaDecoder =
+    Decode.map3 Dica
+        posicaoEmCamposDecoder
+        (Decode.field "value" valorDecoder)
+        (Decode.field "reason" motivoDecoder)
+
+
+{-| Na dica, 1 é servidor e 0 é livre. Qualquer outro número é erro do
+servidor, e não uma marca nova.
+-}
+valorDecoder : Decoder Marca
+valorDecoder =
+    Decode.int
+        |> Decode.andThen
+            (\valor ->
+                case valor of
+                    1 ->
+                        Decode.succeed Servidor
+
+                    0 ->
+                        Decode.succeed Livre
+
+                    _ ->
+                        Decode.fail ("Valor de dica inválido: " ++ String.fromInt valor)
+            )
+
+
+{-| O campo `kind` diz quais outros campos o motivo tem. Lemos ele primeiro
+e escolhemos o decoder do resto com `Decode.andThen`.
+-}
+motivoDecoder : Decoder Motivo
+motivoDecoder =
+    Decode.field "kind" Decode.string
+        |> Decode.andThen motivoPorTipo
+
+
+motivoPorTipo : String -> Decoder Motivo
+motivoPorTipo tipo =
+    case tipo of
+        "row" ->
+            Decode.map PorLinha (Decode.field "index" Decode.int)
+
+        "col" ->
+            Decode.map PorColuna (Decode.field "index" Decode.int)
+
+        "sensor" ->
+            Decode.map PorSensor posicaoEmCamposDecoder
+
+        "cooling" ->
+            Decode.map PorRefrigeracao posicaoEmCamposDecoder
+
+        "combined" ->
+            Decode.succeed Combinado
+
+        _ ->
+            Decode.fail ("Motivo de dica desconhecido: " ++ tipo)
+
+
+verificacaoDecoder : Decoder Verificacao
+verificacaoDecoder =
+    Decode.field "status" Decode.string
+        |> Decode.andThen
+            (\status ->
+                case status of
+                    "ok" ->
+                        Decode.succeed SemContradicao
+
+                    "contradiction" ->
+                        Decode.map Contradicao (Decode.field "cells" (Decode.list posicaoEmListaDecoder))
+
+                    _ ->
+                        Decode.fail ("Status de verificação desconhecido: " ++ status)
+            )
 
 
 
--- TRATAMENTO DE ERROS
+-- ERROS
 --
--- `Http.expectJson` já existe, mas quando o servidor responde com erro (ex.:
--- 422) ele descarta o corpo da resposta. Nosso backend manda uma mensagem útil
--- em `{"detail": "..."}`, então escrevemos nossa própria versão, que olha o
--- corpo e devolve sempre um `Result String a` com mensagens em português.
+-- Adaptado do Api.elm do projeto-modelo do professor: o `Http.expectJson`
+-- padrão descarta o corpo das respostas de erro, e o nosso backend manda
+-- a explicação em `{"detail": "..."}`.
 
 
-expectJson : (Result String a -> msg) -> Decoder a -> Http.Expect msg
-expectJson toMsg decoder =
-    Http.expectStringResponse toMsg <|
-        \response ->
-            case response of
-                Http.GoodStatus_ _ body ->
-                    Decode.decodeString decoder body
+esperarJson : (Result String a -> msg) -> Decoder a -> Http.Expect msg
+esperarJson aoResponder decoder =
+    Http.expectStringResponse aoResponder <|
+        \resposta ->
+            case resposta of
+                Http.GoodStatus_ _ corpo ->
+                    Decode.decodeString decoder corpo
                         |> Result.mapError (\_ -> "Resposta inesperada do servidor.")
 
-                Http.BadStatus_ metadata body ->
-                    Err (errorDetail metadata.statusCode body)
+                Http.BadStatus_ metadados corpo ->
+                    Err (mensagemDeErro metadados.statusCode corpo)
 
                 Http.BadUrl_ url ->
                     Err ("URL inválida: " ++ url)
@@ -174,14 +284,11 @@ expectJson toMsg decoder =
                     Err "Não foi possível falar com o servidor. O backend está rodando?"
 
 
-{-| Tenta extrair o campo `detail` (quando ele é uma string). Se não der,
-monta uma mensagem genérica com o código HTTP.
--}
-errorDetail : Int -> String -> String
-errorDetail status body =
-    case Decode.decodeString (Decode.field "detail" Decode.string) body of
-        Ok detail ->
-            detail
+mensagemDeErro : Int -> String -> String
+mensagemDeErro status corpo =
+    case Decode.decodeString (Decode.field "detail" Decode.string) corpo of
+        Ok detalhe ->
+            detalhe
 
         Err _ ->
             "Erro no servidor (código " ++ String.fromInt status ++ ")."
