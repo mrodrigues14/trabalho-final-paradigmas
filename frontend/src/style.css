@@ -1,5 +1,5 @@
 /* ==========================================================================
-   style.css: todo o visual do Sudoku.
+   style.css: todo o visual do Rack.
 
    COMO ESTE ARQUIVO ESTÁ ORGANIZADO
    ---------------------------------
@@ -18,7 +18,7 @@
    mas o código Elm fica cheio de detalhes visuais e difícil de ler.
 
    Aqui fazemos o contrário: o Elm usa nomes que dizem O QUE o elemento é
-   (`board`, `cell`, `number-key`), e este arquivo diz COMO ele aparece.
+   (`board`, `cell`, `count`), e este arquivo diz COMO ele aparece.
    Para não perder as vantagens do Tailwind, usamos `@apply`, que copia o
    CSS de classes utilitárias para dentro de uma classe nossa:
 
@@ -49,7 +49,7 @@
        .cell {
          color: black;
          &:hover { color: red; }        -> .cell:hover
-         &.cell--given { ... }          -> .cell.cell--given
+         &.cell--sensor { ... }         -> .cell.cell--sensor
        }
    ========================================================================== */
 
@@ -122,26 +122,26 @@
   prefersdark: false;
   color-scheme: light;
 
-  --color-base-100: oklch(99% 0.01 80);    /* papel */
-  --color-base-200: oklch(96% 0.02 80);
-  --color-base-300: oklch(90% 0.03 75);
-  --color-base-content: oklch(28% 0.04 265); /* tinta */
-  --color-primary: oklch(55% 0.2 275);     /* anil: seleção */
-  --color-primary-content: oklch(98% 0.01 275);
-  --color-secondary: oklch(68% 0.19 20);   /* coral: dica */
-  --color-secondary-content: oklch(99% 0.01 20);
-  --color-accent: oklch(78% 0.15 75);      /* âmbar: destaques */
-  --color-accent-content: oklch(28% 0.05 75);
-  --color-neutral: oklch(32% 0.04 265);
-  --color-neutral-content: oklch(97% 0.01 265);
-  --color-info: oklch(52% 0.17 250);       /* números do jogador */
-  --color-info-content: oklch(98% 0.01 250);
-  --color-success: oklch(58% 0.14 160);    /* números revelados */
-  --color-success-content: oklch(98% 0.01 160);
-  --color-warning: oklch(76% 0.16 65);     /* modo de marcação */
-  --color-warning-content: oklch(28% 0.06 65);
-  --color-error: oklch(58% 0.21 25);       /* conflitos */
-  --color-error-content: oklch(98% 0.01 25);
+  --color-base-100: oklch(98.5% 0.004 230);
+  --color-base-200: oklch(94.5% 0.008 230);
+  --color-base-300: oklch(88% 0.012 230);
+  --color-base-content: oklch(24% 0.02 240);
+  --color-primary: oklch(55% 0.11 190);
+  --color-primary-content: oklch(98.5% 0.004 230);
+  --color-secondary: oklch(74% 0.15 65);
+  --color-secondary-content: oklch(24% 0.02 240);
+  --color-accent: oklch(86% 0.06 190);
+  --color-accent-content: oklch(24% 0.02 240);
+  --color-neutral: oklch(24% 0.02 240);
+  --color-neutral-content: oklch(98.5% 0.004 230);
+  --color-info: oklch(55% 0.1 230);
+  --color-info-content: oklch(98.5% 0.004 230);
+  --color-success: oklch(56% 0.13 150);
+  --color-success-content: oklch(98.5% 0.004 230);
+  --color-warning: oklch(80% 0.12 80);
+  --color-warning-content: oklch(24% 0.02 240);
+  --color-error: oklch(57% 0.19 25);
+  --color-error-content: oklch(98.5% 0.004 230);
 
   /* Arredondamento e "profundidade" dos componentes do daisyUI. */
   --radius-selector: 1rem;
@@ -163,26 +163,26 @@
   prefersdark: false;
   color-scheme: dark;
 
-  --color-base-100: oklch(22% 0.03 270);
-  --color-base-200: oklch(18% 0.03 270);
-  --color-base-300: oklch(30% 0.04 270);
-  --color-base-content: oklch(92% 0.02 270);
-  --color-primary: oklch(68% 0.18 280);
-  --color-primary-content: oklch(15% 0.04 280);
-  --color-secondary: oklch(72% 0.17 15);
-  --color-secondary-content: oklch(15% 0.04 15);
-  --color-accent: oklch(82% 0.14 80);
-  --color-accent-content: oklch(20% 0.04 80);
-  --color-neutral: oklch(30% 0.03 270);
-  --color-neutral-content: oklch(92% 0.02 270);
-  --color-info: oklch(78% 0.12 230);
-  --color-info-content: oklch(18% 0.04 230);
-  --color-success: oklch(78% 0.14 160);
-  --color-success-content: oklch(18% 0.04 160);
-  --color-warning: oklch(80% 0.15 70);
-  --color-warning-content: oklch(20% 0.05 70);
-  --color-error: oklch(68% 0.2 22);
-  --color-error-content: oklch(15% 0.04 22);
+  --color-base-100: oklch(22% 0.015 240);
+  --color-base-200: oklch(18% 0.012 240);
+  --color-base-300: oklch(32% 0.02 230);
+  --color-base-content: oklch(93% 0.01 230);
+  --color-primary: oklch(74% 0.1 190);
+  --color-primary-content: oklch(18% 0.012 240);
+  --color-secondary: oklch(80% 0.13 70);
+  --color-secondary-content: oklch(18% 0.012 240);
+  --color-accent: oklch(82% 0.07 190);
+  --color-accent-content: oklch(18% 0.012 240);
+  --color-neutral: oklch(30% 0.015 240);
+  --color-neutral-content: oklch(93% 0.01 230);
+  --color-info: oklch(76% 0.09 230);
+  --color-info-content: oklch(18% 0.012 240);
+  --color-success: oklch(76% 0.13 150);
+  --color-success-content: oklch(18% 0.012 240);
+  --color-warning: oklch(82% 0.11 80);
+  --color-warning-content: oklch(18% 0.012 240);
+  --color-error: oklch(68% 0.17 25);
+  --color-error-content: oklch(18% 0.012 240);
 
   --radius-selector: 1rem;
   --radius-field: 0.75rem;
@@ -224,15 +224,8 @@
 
 :root {
   /* --- Tipografia --- */
-  --font-title: var(--font-display);  /* título "Sudoku" */
-  /* Todos os números usam UMA fonte geométrica. A origem de cada número
-     (pista, jogador, Prolog) é indicada só por peso, cor e fundo. Fontes
-     variáveis aceitam qualquer peso de 100 a 900, não só 400 e 700. */
+  --font-title: var(--font-display);  /* título "Rack" */
   --font-numbers: var(--font-sans);
-  --given-weight: 700;     /* pistas: firmes */
-  --guess-weight: 400;     /* jogador: mais leve */
-  --revealed-weight: 300;  /* Prolog: fino */
-  --marks-weight: 500;
 
   /* --- Layout --- */
   --panel-width: 18rem;  /* painel lateral (telas largas) */
@@ -247,37 +240,29 @@
   --board-size: min(100vw - 2rem, 32rem, 70vh);
   --board-radius: 1.25rem;
   --board-line-thin: 1px;
-  --board-line-thick: 3px;
   --board-line-color: color-mix(in oklch, var(--color-base-content) 16%, transparent);
-  --board-box-color: color-mix(in oklch, var(--color-base-content) 70%, transparent);
   --board-shadow:
     0 1px 2px color-mix(in oklch, var(--color-base-content) 10%, transparent),
-    0 24px 48px -12px color-mix(in oklch, var(--color-primary) 35%, transparent);
+    0 24px 48px -12px color-mix(in oklch, var(--color-base-content) 18%, transparent);
 
   /* --- Cores de estado das casas --- */
   --cell-bg: transparent;
   --cell-hover: color-mix(in oklch, var(--color-primary) 10%, transparent);
-  --cell-related: color-mix(in oklch, var(--color-primary) 7%, transparent);
-  --cell-same-value: color-mix(in oklch, var(--color-accent) 35%, transparent);
   --cell-selected: var(--color-primary);
   --cell-conflict: var(--color-error);
-  --given-color: var(--color-base-content);
-  --guess-color: var(--color-info);
-  --revealed-color: var(--color-success);
 
-  /* Fundo que indica a origem do número. Fica numa camada própria
-     (background-image), por cima da cor de estado (background-color), e por
-     isso convive com os destaques de linha, coluna e mesmo número. */
-  --given-tint: color-mix(in oklch, var(--color-base-content) 7%, transparent);
-  --guess-tint: color-mix(in oklch, var(--color-info) 11%, transparent);
-  --revealed-tint: color-mix(in oklch, var(--color-success) 11%, transparent);
+  --sensor-bg: var(--color-base-300);
+  --sensor-color: var(--color-base-content);
+  --server-color: var(--color-primary);
+  --server-slot: color-mix(in oklch, var(--color-primary-content) 55%, transparent);
+  --hint-color: var(--color-secondary);
 
   /* --- Fundo da página --- */
   /* Vários gradientes radiais sobrepostos formam um "mesh gradient". */
   --page-gradient:
-    radial-gradient(60rem 40rem at 10% -10%, color-mix(in oklch, var(--color-primary) 22%, transparent), transparent 70%),
-    radial-gradient(50rem 40rem at 110% 10%, color-mix(in oklch, var(--color-secondary) 18%, transparent), transparent 70%),
-    radial-gradient(60rem 50rem at 50% 120%, color-mix(in oklch, var(--color-accent) 22%, transparent), transparent 70%);
+    radial-gradient(60rem 40rem at 10% -10%, color-mix(in oklch, var(--color-primary) 8%, transparent), transparent 70%),
+    radial-gradient(50rem 40rem at 110% 10%, color-mix(in oklch, var(--color-secondary) 10%, transparent), transparent 70%),
+    radial-gradient(60rem 50rem at 50% 120%, color-mix(in oklch, var(--color-accent) 14%, transparent), transparent 70%);
   --texture-opacity: 0.35;  /* granulado sobre o fundo; 0 desliga */
   --dot-grid-opacity: 0.5;  /* grade de pontinhos; 0 desliga */
 
@@ -296,7 +281,6 @@
 :root:has(.theme-controller[value="dark"]:checked),
 [data-theme="dark"] {
   --texture-opacity: 0.2;
-  --board-box-color: color-mix(in oklch, var(--color-base-content) 55%, transparent);
 }
 
 
@@ -400,10 +384,7 @@
     /* Eixos extras da Fraunces: SOFT arredonda as serifas, WONK entorta
        algumas letras. Experimente outros valores (SOFT: 0 a 100). */
     font-variation-settings: "SOFT" 100, "WONK" 1;
-    /* Texto com gradiente: o fundo é pintado só dentro das letras. */
-    background: linear-gradient(120deg, var(--color-primary), var(--color-secondary) 60%, var(--color-accent));
-    background-clip: text;
-    color: transparent;
+    color: var(--color-primary);
   }
 
   .app-subtitle {
@@ -492,29 +473,67 @@
     @apply loading loading-dots loading-sm;
   }
 
-  /* ---------- Tabuleiro ----------
-     `container-type: inline-size` transforma o tabuleiro num CONTAINER:
-     dentro dele, a unidade `cqi` vale 1% da largura do tabuleiro. Assim o
-     tamanho dos números acompanha o tabuleiro, qualquer que seja a tela
-     (veja `.cell`, abaixo).
+  .message--info    { @apply alert-info alert-soft; }
 
-     `grid-rows-9` é tão necessário quanto `grid-cols-9`: sem ele, a altura
-     de cada linha depende do conteúdo, e uma linha vazia fica mais baixa que
-     uma linha com números. Com os dois, as 81 casas têm o mesmo tamanho. */
+  .timer {
+    @apply text-2xl font-semibold;
+    font-family: var(--font-numbers);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .hint-panel {
+    @apply rounded-box p-3 text-sm;
+    background: color-mix(in oklch, var(--color-base-content) 5%, transparent);
+    border: 1px dashed var(--glass-border);
+  }
+
+  .hint-panel--active {
+    background: color-mix(in oklch, var(--hint-color) 14%, transparent);
+    border: 1px solid color-mix(in oklch, var(--hint-color) 50%, transparent);
+  }
+
+  .hint-title {
+    @apply mb-1 font-semibold;
+  }
+
+  .hint-reason {
+    @apply opacity-80;
+  }
+
+  .board-placeholder {
+    @apply flex flex-col items-center justify-center gap-4 p-8 text-center;
+    width: var(--board-size);
+    aspect-ratio: 1;
+    border-radius: var(--board-radius);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+  }
+
+  .board-placeholder--error {
+    border-color: var(--color-error);
+  }
+
+  .placeholder-title {
+    @apply text-lg font-semibold;
+  }
+
+  .spinner--large {
+    @apply loading-lg;
+  }
 
   .board {
-    @apply relative grid grid-cols-9 grid-rows-9 overflow-hidden;
+    --count-size: 0.75fr;
+    @apply relative grid overflow-hidden;
+    grid-template-columns: var(--count-size) repeat(var(--cols), 1fr);
+    grid-template-rows: var(--count-size) repeat(var(--rows), 1fr);
     width: var(--board-size);
     aspect-ratio: 1;
     container-type: inline-size;
-    border: var(--board-line-thick) solid var(--board-box-color);
     border-radius: var(--board-radius);
     background: var(--color-base-100);
     box-shadow: var(--board-shadow);
     transition: box-shadow calc(300ms * var(--speed));
 
-    /* `:has()` é o "seletor pai" do CSS: seleciona o tabuleiro SE ele
-       contiver uma casa em conflito. Nenhum código Elm foi necessário. */
     &:has(.cell--conflict) {
       box-shadow:
         var(--board-shadow),
@@ -522,9 +541,6 @@
     }
   }
 
-  /* Tabuleiro resolvido: uma borda de gradiente cônico girando.
-     O `::after` fica por cima, e `mask` recorta só a moldura (a área do
-     `content-box` é removida pela `mask-composite: exclude`). */
   .board--solved::after {
     content: "";
     position: absolute;
@@ -538,43 +554,43 @@
     animation: spin-angle calc(3s * var(--speed)) linear infinite;
   }
 
-  /* ---------- Casas ---------- */
+  .board-corner {
+    background: color-mix(in oklch, var(--color-base-content) 4%, transparent);
+  }
+
+  .count {
+    @apply flex items-center justify-center font-semibold;
+    font-family: var(--font-numbers);
+    font-size: calc(100cqi / (var(--cols) + 1) * 0.42);
+    background: color-mix(in oklch, var(--color-base-content) 4%, transparent);
+    transition: color calc(150ms * var(--speed)), background-color calc(150ms * var(--speed));
+  }
+
+  .count--ok {
+    color: var(--color-success);
+  }
+
+  .count--over {
+    color: var(--color-error-content);
+    background: var(--color-error);
+  }
+
+  .count--reason {
+    box-shadow: inset 0 0 0 3px var(--hint-color);
+  }
 
   .cell {
     @apply relative flex items-center justify-center select-none;
-    /* 100cqi = largura do tabuleiro; / 9 = largura de uma casa. */
     font-family: var(--font-numbers);
-    font-size: calc(100cqi / 9 * 0.52);
-    font-variant-numeric: tabular-nums;
+    font-size: calc(100cqi / (var(--cols) + 1) * 0.5);
     line-height: 1;
-    /* Duas camadas de fundo: a cor de estado (seleção, destaques) e, por
-       cima, o tingido de origem. Um gradiente de uma cor só,
-       `linear-gradient(X, X)`, é o truque para usar uma COR como imagem. */
-    --cell-tint: transparent;
     background-color: var(--cell-bg);
-    background-image: linear-gradient(var(--cell-tint), var(--cell-tint));
-    border-right: var(--board-line-thin) solid var(--board-line-color);
-    border-bottom: var(--board-line-thin) solid var(--board-line-color);
-    transition: background-color calc(120ms * var(--speed)), color calc(120ms * var(--speed));
+    border-left: var(--board-line-thin) solid var(--board-line-color);
+    border-top: var(--board-line-thin) solid var(--board-line-color);
+    transition: background-color calc(120ms * var(--speed));
     cursor: pointer;
 
-    /* Linhas grossas dos blocos 3x3, calculadas só com CSS.
-       As 81 casas são filhas do tabuleiro, em ordem de leitura.
-       `:nth-child(9n + 3)` = 3ª, 12ª, 21ª... casa = coluna 3 de cada linha. */
-    &:nth-child(9n + 3),
-    &:nth-child(9n + 6) {
-      border-right: var(--board-line-thick) solid var(--board-box-color);
-    }
-    /* `:nth-child(n + 19):nth-child(-n + 27)` = da 19ª à 27ª casa = linha 3. */
-    &:nth-child(n + 19):nth-child(-n + 27),
-    &:nth-child(n + 46):nth-child(-n + 54) {
-      border-bottom: var(--board-line-thick) solid var(--board-box-color);
-    }
-    /* Última coluna e última linha não precisam de borda (o tabuleiro já tem). */
-    &:nth-child(9n)       { border-right: none; }
-    &:nth-child(n + 73)   { border-bottom: none; }
-
-    &:hover {
+    &:hover:not(:disabled) {
       background-color: var(--cell-hover);
     }
 
@@ -582,165 +598,93 @@
       outline: 2px solid var(--color-primary);
       outline-offset: -3px;
     }
+
+    &:disabled {
+      cursor: default;
+    }
   }
 
-  /* Modificadores de destaque. A ORDEM importa: com a mesma especificidade,
-     a regra que vem depois vence. Por isso "selecionada" vem por último. */
-  .cell--related    { --cell-bg: var(--cell-related); }
-  .cell--same-value { --cell-bg: var(--cell-same-value); }
+  .cell--sensor {
+    --cell-bg: var(--sensor-bg);
+    color: var(--sensor-color);
+    font-weight: 700;
+    cursor: default;
+  }
 
-  /* Conflito: listras diagonais feitas com `repeating-linear-gradient`. */
+  .cell--free {
+    --cell-bg: color-mix(in oklch, var(--color-base-content) 3%, transparent);
+  }
+
+  .cell--reason {
+    --cell-bg: color-mix(in oklch, var(--hint-color) 16%, transparent);
+  }
+
+  .cell--hint {
+    box-shadow: inset 0 0 0 3px var(--hint-color);
+    animation: pop calc(300ms * var(--speed)) ease-out;
+  }
+
   .cell--conflict {
     color: var(--cell-conflict);
     background-image: repeating-linear-gradient(
       -45deg,
-      color-mix(in oklch, var(--cell-conflict) 16%, transparent) 0 4px,
+      color-mix(in oklch, var(--cell-conflict) 22%, transparent) 0 4px,
       transparent 4px 9px
     );
   }
 
   .cell--selected {
-    --cell-bg: var(--cell-selected);
-    color: var(--color-primary-content);
-    box-shadow: inset 0 0 0 2px color-mix(in oklch, var(--color-primary-content) 35%, transparent);
+    box-shadow: inset 0 0 0 3px var(--cell-selected);
 
-    &:hover { background-color: var(--cell-bg); }
-
-    /* Na casa selecionada, o tingido de origem sairia "sujo" sobre a cor
-       forte da seleção. Então o desligamos. */
-    &, &.cell--conflict { background-image: none; }
-
-    &.cell--conflict {
-      background-color: var(--cell-conflict);
-      color: var(--color-error-content);
+    &.cell--hint {
+      box-shadow: inset 0 0 0 3px var(--cell-selected), inset 0 0 0 6px var(--hint-color);
     }
   }
 
-  /* Tipos de número */
-
-  /* Os três tipos de número só mudam variáveis: peso, cor e tingido.
-     `:not(A, B)` exclui as casas selecionadas ou em conflito, que têm cores
-     próprias definidas acima. */
-
-  .cell--given {
-    --cell-tint: var(--given-tint);
-    font-weight: var(--given-weight);
-
-    &:not(.cell--selected, .cell--conflict) {
-      color: var(--given-color);
-    }
-  }
-
-  .cell--guess {
-    --cell-tint: var(--guess-tint);
-    font-weight: var(--guess-weight);
-
-    &:not(.cell--selected, .cell--conflict) {
-      color: var(--guess-color);
-    }
-  }
-
-  .cell--revealed {
-    --cell-tint: var(--revealed-tint);
-    font-weight: var(--revealed-weight);
-
-    &:not(.cell--selected, .cell--conflict) {
-      color: var(--revealed-color);
-    }
-  }
-
-  /* As animações rodam quando a classe aparece na casa. Animamos o <span>
-     do número, e não a casa: um `transform` na casa moveria também as
-     bordas, e as linhas da grade "tremeriam". */
   .cell-value {
     display: inline-block;
   }
-  .cell--guess .cell-value {
+
+  .server-icon {
+    position: relative;
+    width: 58%;
+    height: 66%;
+    border-radius: 12%;
+    background:
+      linear-gradient(var(--server-slot) 0 0) 50% 30% / 70% 10% no-repeat,
+      linear-gradient(var(--server-slot) 0 0) 50% 58% / 70% 10% no-repeat,
+      var(--server-color);
+    box-shadow: 0 2px 0 color-mix(in oklch, var(--server-color) 60%, black);
     animation: pop calc(220ms * var(--speed)) ease-out;
-  }
-  .cell--revealed .cell-value {
-    animation: reveal calc(500ms * var(--speed)) ease-out;
-  }
 
-  /* ---------- Marcações de canto ----------
-     A casa ganha uma grade 3x3 invisível. O Elm só coloca as marcações em
-     ordem crescente, e é o CSS que decide onde cada uma fica: 1ª marcação no
-     canto superior esquerdo, 2ª no superior direito, etc. `grid-area:
-     linha / coluna` posiciona um item na grade.
-
-         1 5 2
-         7 9 8
-         3 6 4
-  */
-
-  .corner-marks {
-    @apply absolute grid grid-cols-3 grid-rows-3;
-    inset: 7%;
-    font-size: calc(100cqi / 9 * 0.24);
-    font-weight: var(--marks-weight);
-  }
-
-  .corner-mark {
-    @apply flex items-center justify-center opacity-70;
-
-    &:nth-child(1) { grid-area: 1 / 1; }
-    &:nth-child(2) { grid-area: 1 / 3; }
-    &:nth-child(3) { grid-area: 3 / 1; }
-    &:nth-child(4) { grid-area: 3 / 3; }
-    &:nth-child(5) { grid-area: 1 / 2; }
-    &:nth-child(6) { grid-area: 3 / 2; }
-    &:nth-child(7) { grid-area: 2 / 1; }
-    &:nth-child(8) { grid-area: 2 / 3; }
-    &:nth-child(9) { grid-area: 2 / 2; }
-  }
-
-  .corner-mark--highlight {
-    @apply font-bold opacity-100;
-    color: var(--color-accent-content);
-    background: var(--color-accent);
-    border-radius: 999px;
-  }
-
-  /* ---------- Teclado numérico ---------- */
-
-  .number-pad {
-    @apply grid grid-cols-3 gap-2;
-  }
-
-  .number-key {
-    @apply btn btn-lg aspect-square h-auto border-0 text-2xl;
-    font-family: var(--font-numbers);
-    font-weight: 500;
-    background: color-mix(in oklch, var(--color-base-content) 6%, transparent);
-    transition: transform calc(100ms * var(--speed)), background-color calc(150ms * var(--speed));
-
-    &:hover:not(:disabled) {
-      background: color-mix(in oklch, var(--color-primary) 18%, transparent);
-    }
-    &:active:not(:disabled) {
-      transform: scale(0.94);
+    &::after {
+      content: "";
+      position: absolute;
+      right: 15%;
+      bottom: 12%;
+      width: 12%;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: var(--color-success);
     }
   }
 
-  /* O Elm marca o modo atual com um atributo: <div class="app" data-mode="marks">.
-     Seletores de atributo `[nome="valor"]` permitem estilizar por estado
-     sem criar uma classe nova. No modo de marcação, o número do botão vai
-     para o canto, imitando uma marcação. */
-  [data-mode="marks"] .number-key {
-    @apply items-start justify-start p-2 text-base;
-    background: color-mix(in oklch, var(--color-warning) 25%, transparent);
-  }
+  .cell--conflict .server-icon {
+    background:
+      linear-gradient(var(--server-slot) 0 0) 50% 30% / 70% 10% no-repeat,
+      linear-gradient(var(--server-slot) 0 0) 50% 58% / 70% 10% no-repeat,
+      var(--cell-conflict);
 
-  .erase-key {
-    @apply btn btn-lg btn-ghost col-span-1 h-auto min-h-12 text-xl;
-  }
-
-  .mode-toggle {
-    @apply btn btn-lg col-span-2 h-auto min-h-12;
-
-    &.mode-toggle--on {
-      @apply btn-warning;
+    &::after {
+      background: var(--color-warning);
     }
+  }
+
+  .free-icon {
+    width: 14%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: color-mix(in oklch, var(--color-base-content) 40%, transparent);
   }
 
   /* ---------- Ações ---------- */
@@ -776,11 +720,6 @@
   0%   { transform: scale(0.6); opacity: 0; }
   70%  { transform: scale(1.12); }
   100% { transform: scale(1); opacity: 1; }
-}
-
-@keyframes reveal {
-  0%   { filter: blur(6px); opacity: 0; transform: translateY(20%); }
-  100% { filter: blur(0); opacity: 1; transform: none; }
 }
 
 /* Quem configurou o sistema para "reduzir movimento" não vê animações. */
