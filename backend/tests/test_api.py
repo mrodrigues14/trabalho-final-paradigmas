@@ -6,78 +6,149 @@ encontra sozinho.
 
 Rodar: `uv run pytest` (na pasta backend) ou `make test-backend` (na raiz).
 
-As regras do Sudoku são testadas em Prolog (prolog/test_sudoku.pl). Aqui
+As regras do Rack são testadas em Prolog (prolog/test_*.pl). Aqui
 conferimos só a "cola": rotas, formato do JSON e códigos de status.
 """
 
+import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.main import BOARD_COMPLETE, NO_SOLUTION, app
 
 client = TestClient(app)
 
-# O mesmo puzzle de example_puzzle/1 em sudoku.pl.
-EXAMPLE = [
-    [5, 3, 0, 0, 7, 0, 0, 0, 0],
-    [6, 0, 0, 1, 9, 5, 0, 0, 0],
-    [0, 9, 8, 0, 0, 0, 0, 6, 0],
-    [8, 0, 0, 0, 6, 0, 0, 0, 3],
-    [4, 0, 0, 8, 0, 3, 0, 0, 1],
-    [7, 0, 0, 0, 2, 0, 0, 0, 6],
-    [0, 6, 0, 0, 0, 0, 2, 8, 0],
-    [0, 0, 0, 4, 1, 9, 0, 0, 5],
-    [0, 0, 0, 0, 8, 0, 0, 7, 9],
+# O mesmo puzzle de puzzle_exemplo/1 em rack.pl.
+EXAMPLE = {
+    "rows": 6,
+    "cols": 6,
+    "rowCounts": [2, 2, 2, 1, 2, 2],
+    "colCounts": [3, 1, 2, 2, 1, 2],
+    "sensors": [[1, 4, 3], [2, 1, 3], [3, 0, 2], [3, 2, 2], [4, 2, 3]],
+}
+
+# A solução de solucao_exemplo/1 em test_rack.pl (1 = servidor).
+SOLUTION = [
+    [1, 0, 0, 1, 0, 0],
+    [0, 0, 1, 0, 0, 1],
+    [1, 0, 0, 0, 1, 0],
+    [0, 1, 0, 0, 0, 0],
+    [0, 0, 0, 1, 0, 1],
+    [1, 0, 1, 0, 0, 0],
 ]
 
 
-def solved_example() -> list[list[int]]:
-    """A solução do puzzle de exemplo, obtida pela própria API."""
-    return client.post("/api/solve", json={"board": EXAMPLE}).json()["board"]
+def empty_marks() -> list[list[int]]:
+    return [[0] * 6 for _ in range(6)]
+
+
+def wrong_marks() -> list[list[int]]:
+    """Livre onde a solução tem servidor e servidor onde ela tem livre."""
+    marks = empty_marks()
+    marks[0][0] = 2
+    marks[0][1] = 1
+    return marks
+
+
+def complete_marks() -> list[list[int]]:
+    """A solução inteira como marcas (1 servidor, 2 livre; sensor fica 0)."""
+    marks = [[1 if cell else 2 for cell in row] for row in SOLUTION]
+    for row, col, _ in EXAMPLE["sensors"]:
+        marks[row][col] = 0
+    return marks
+
+
+def post(route: str, marks: list[list[int]], puzzle: dict = EXAMPLE):
+    return client.post(route, json={"puzzle": puzzle, "marks": marks})
+
+
+@pytest.mark.parametrize("difficulty, size", [("easy", 6), ("medium", 8), ("hard", 10)])
+def test_generate(difficulty, size):
+    response = client.post("/api/generate", json={"difficulty": difficulty})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["difficulty"] == difficulty
+    puzzle = body["puzzle"]
+    assert puzzle["rows"] == puzzle["cols"] == size
+    assert len(puzzle["rowCounts"]) == len(puzzle["colCounts"]) == size
+    assert all(len(sensor) == 3 for sensor in puzzle["sensors"])
+
+
+def test_generate_rejects_unknown_difficulty():
+    response = client.post("/api/generate", json={"difficulty": "impossible"})
+    assert response.status_code == 422
 
 
 def test_solve():
-    response = client.post("/api/solve", json={"board": EXAMPLE})
+    response = post("/api/solve", empty_marks())
     assert response.status_code == 200
-    assert response.json()["board"][0] == [5, 3, 4, 6, 7, 8, 9, 1, 2]
+    assert response.json() == {"grid": SOLUTION}
 
 
 def test_solve_without_solution():
-    board = [row[:] for row in EXAMPLE]  # cópia, para não alterar EXAMPLE
-    board[0][2] = 5  # dois 5 na primeira linha
-    response = client.post("/api/solve", json={"board": board})
+    response = post("/api/solve", wrong_marks())
     assert response.status_code == 422
-
-
-def test_solve_rejects_malformed_board():
-    # Quem rejeita aqui é o Pydantic, antes de o Prolog ser chamado.
-    response = client.post("/api/solve", json={"board": [[1, 2, 3]]})
-    assert response.status_code == 422
-
-
-def test_generate():
-    response = client.post("/api/generate", json={"difficulty": "easy"})
-    assert response.status_code == 200
-    board = response.json()["board"]
-    assert len(board) == 9 and all(len(row) == 9 for row in board)
-    assert 0 in sum(board, [])  # sum(..., []) concatena as linhas: há casa vazia
+    assert response.json()["detail"] == NO_SOLUTION
 
 
 def test_hint():
-    response = client.post("/api/hint", json={"board": EXAMPLE})
+    response = post("/api/hint", empty_marks())
     assert response.status_code == 200
     hint = response.json()
-    assert EXAMPLE[hint["row"]][hint["col"]] == 0  # a dica é para uma casa vazia
+    assert hint["value"] == SOLUTION[hint["row"]][hint["col"]]  # bate com a solução
+    assert hint["reason"]["kind"] in {"row", "col", "sensor", "cooling", "combined"}
+
+
+def test_hint_reason_has_only_its_fields():
+    # Com um servidor em (0, 0), a casa ao lado só pode ficar livre: o motivo
+    # é a refrigeração, e o JSON não leva o `index`, que é de outro motivo.
+    marks = empty_marks()
+    marks[0][0] = 1
+    response = post("/api/hint", marks)
+    assert response.json() == {
+        "row": 0,
+        "col": 1,
+        "value": 0,
+        "reason": {"kind": "cooling", "row": 0, "col": 0},
+    }
 
 
 def test_hint_on_complete_board():
-    response = client.post("/api/hint", json={"board": solved_example()})
+    response = post("/api/hint", complete_marks())
     assert response.status_code == 422
-    assert response.json()["detail"] == "O tabuleiro já está completo."
+    assert response.json()["detail"] == BOARD_COMPLETE
 
 
-def test_hint_on_full_board_with_errors():
-    board = solved_example()
-    board[0][0], board[0][1] = board[0][1], board[0][0]  # troca dois números
-    response = client.post("/api/hint", json={"board": board})
+def test_hint_with_contradiction():
+    response = post("/api/hint", wrong_marks())
     assert response.status_code == 422
-    assert "não tem solução" in response.json()["detail"]
+    assert response.json()["detail"] == NO_SOLUTION
+
+
+def test_check_ok():
+    response = post("/api/check", complete_marks())
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+def test_check_contradiction():
+    response = post("/api/check", wrong_marks())
+    assert response.status_code == 200
+    assert response.json() == {"status": "contradiction", "cells": [[0, 0], [0, 1]]}
+
+
+# Quem rejeita os casos abaixo é o Pydantic, antes de o Prolog ser chamado.
+
+
+def test_rejects_mark_out_of_range():
+    marks = empty_marks()
+    marks[0][0] = 3
+    assert post("/api/check", marks).status_code == 422
+
+
+def test_rejects_marks_of_wrong_size():
+    assert post("/api/check", empty_marks()[:5]).status_code == 422
+
+
+def test_rejects_sensor_outside_grid():
+    puzzle = {**EXAMPLE, "sensors": [[6, 0, 1]]}
+    assert post("/api/check", empty_marks(), puzzle).status_code == 422
