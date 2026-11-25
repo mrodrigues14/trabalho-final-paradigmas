@@ -1,5 +1,6 @@
 module Main exposing (main)
 
+import Api exposing (Verificacao(..))
 import Browser
 import Browser.Events
 import Html exposing (Html, aside, button, div, footer, h1, header, input, label, main_, span, text)
@@ -7,7 +8,6 @@ import Html.Attributes exposing (attribute, checked, class, type_, value)
 import Html.Events exposing (onCheck, onClick)
 import Json.Decode as Decode exposing (Decoder)
 import Rack exposing (Dica, Dificuldade(..), Marca(..), Posicao, Puzzle)
-import Simulado as Api
 import Time
 import View.Painel as Painel
 import View.Tabuleiro as Tabuleiro
@@ -51,6 +51,7 @@ type alias Jogo =
     , pensando : Bool
     , aviso : Maybe String
     , revelada : Bool
+    , verificacao : Maybe Verificacao
     }
 
 
@@ -64,6 +65,7 @@ novoJogo puzzle =
     , pensando = False
     , aviso = Nothing
     , revelada = False
+    , verificacao = Nothing
     }
 
 
@@ -83,6 +85,8 @@ type Msg
     | DicaChegou (Result String Dica)
     | PediuSolucao
     | SolucaoChegou (Result String (List (List Int)))
+    | PediuVerificacao
+    | VerificacaoChegou (Result String Verificacao)
     | Desfazer
     | Tique
     | TrocouTema Bool
@@ -93,6 +97,7 @@ type Teclado
     = Mover Int Int
     | Marcar Marca
     | TeclaDica
+    | TeclaVerificar
     | TeclaDesfazer
 
 
@@ -134,6 +139,9 @@ update msg model =
 
         Tecla TeclaDica ->
             update PediuDica model
+
+        Tecla TeclaVerificar ->
+            update PediuVerificacao model
 
         Tecla TeclaDesfazer ->
             update Desfazer model
@@ -182,6 +190,7 @@ update msg model =
                         , dica = Nothing
                         , pensando = False
                         , revelada = True
+                        , verificacao = Nothing
                       }
                     , Cmd.none
                     )
@@ -190,12 +199,28 @@ update msg model =
         SolucaoChegou (Err erro) ->
             noJogo model (\jogo -> ( avisar erro jogo, Cmd.none ))
 
+        PediuVerificacao ->
+            noJogo model
+                (\jogo ->
+                    if jogo.pensando || jogo.revelada then
+                        ( jogo, Cmd.none )
+
+                    else
+                        ( { jogo | pensando = True, aviso = Nothing }, Api.verificar jogo.puzzle VerificacaoChegou )
+                )
+
+        VerificacaoChegou (Ok verificacao) ->
+            noJogo model (\jogo -> ( { jogo | verificacao = Just verificacao, pensando = False }, Cmd.none ))
+
+        VerificacaoChegou (Err erro) ->
+            noJogo model (\jogo -> ( avisar erro jogo, Cmd.none ))
+
         Desfazer ->
             noJogo model
                 (\jogo ->
                     case jogo.historico of
                         anterior :: resto ->
-                            ( { jogo | puzzle = anterior, historico = resto, dica = Nothing }, Cmd.none )
+                            ( { jogo | puzzle = anterior, historico = resto, dica = Nothing, verificacao = Nothing }, Cmd.none )
 
                         [] ->
                             ( jogo, Cmd.none )
@@ -242,7 +267,13 @@ mudarPuzzle mudar jogo =
         jogo
 
     else
-        { jogo | puzzle = novo, historico = jogo.puzzle :: jogo.historico, dica = Nothing, aviso = Nothing }
+        { jogo
+            | puzzle = novo
+            , historico = jogo.puzzle :: jogo.historico
+            , dica = Nothing
+            , aviso = Nothing
+            , verificacao = Nothing
+        }
 
 
 mover : Int -> Int -> Jogo -> Jogo
@@ -320,6 +351,9 @@ teclaParaMsg tecla =
         "h" ->
             Decode.succeed TeclaDica
 
+        "v" ->
+            Decode.succeed TeclaVerificar
+
         "u" ->
             Decode.succeed TeclaDesfazer
 
@@ -355,6 +389,8 @@ view model =
             , text " limpa, "
             , kbd "H"
             , text " dica, "
+            , kbd "V"
+            , text " verifica, "
             , kbd "U"
             , text " desfaz."
             ]
@@ -383,6 +419,7 @@ viewCentro model =
                 { aoClicar = Clicou
                 , selecionada = jogo.selecionada
                 , dica = jogo.dica
+                , contradicao = casasContraditorias jogo.verificacao
                 , resolvido = False
                 }
                 jogo.puzzle
@@ -392,6 +429,7 @@ viewCentro model =
                 { aoClicar = Clicou
                 , selecionada = Nothing
                 , dica = Nothing
+                , contradicao = []
                 , resolvido = True
                 }
                 jogo.puzzle
@@ -426,13 +464,14 @@ viewPainel model =
                         Painel.Info "Esta é a solução do Prolog."
 
                     ( Nothing, False, False ) ->
-                        Painel.Nenhuma
+                        mensagemVerificacao jogo.verificacao
                 )
             , Painel.rotulo "Dica"
             , Painel.dica jogo.dica
             , Painel.rotulo "Ajuda"
             , Painel.acoes
                 { aoPedirDica = PediuDica
+                , aoVerificar = PediuVerificacao
                 , aoMostrarSolucao = PediuSolucao
                 , aoDesfazer = Desfazer
                 , podeDesfazer = not (List.isEmpty jogo.historico)
@@ -451,6 +490,35 @@ viewPainel model =
             , button [ class "action-button action-button--hint", onClick (NovoJogo model.dificuldade) ]
                 [ text "Jogar de novo" ]
             ]
+
+
+{-| As casas que o `/api/check` apontou ficam destacadas como conflito até
+o jogador mexer no tabuleiro.
+-}
+casasContraditorias : Maybe Verificacao -> List Posicao
+casasContraditorias verificacao =
+    case verificacao of
+        Just (Contradicao casas) ->
+            casas
+
+        _ ->
+            []
+
+
+mensagemVerificacao : Maybe Verificacao -> Painel.Mensagem Msg
+mensagemVerificacao verificacao =
+    case verificacao of
+        Just SemContradicao ->
+            Painel.Sucesso "Tudo certo até aqui."
+
+        Just (Contradicao [ _ ]) ->
+            Painel.Info "1 casa marcada não bate com a solução."
+
+        Just (Contradicao casas) ->
+            Painel.Info (String.fromInt (List.length casas) ++ " casas marcadas não batem com a solução.")
+
+        Nothing ->
+            Painel.Nenhuma
 
 
 viewTema : Bool -> Html Msg

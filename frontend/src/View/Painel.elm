@@ -122,6 +122,7 @@ nomeValor marca =
 
 acoes :
     { aoPedirDica : msg
+    , aoVerificar : msg
     , aoMostrarSolucao : msg
     , aoDesfazer : msg
     , podeDesfazer : Bool
@@ -136,6 +137,12 @@ acoes config =
             , onClick config.aoPedirDica
             ]
             [ text "Dica" ]
+        , button
+            [ class "action-button action-button--hint"
+            , disabled config.bloqueado
+            , onClick config.aoVerificar
+            ]
+            [ text "Verificar" ]
         , button
             [ class "action-button action-button--solve"
             , disabled config.bloqueado

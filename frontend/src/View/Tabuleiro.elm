@@ -11,6 +11,7 @@ type alias Config msg =
     { aoClicar : Posicao -> msg
     , selecionada : Maybe Posicao
     , dica : Maybe Dica
+    , contradicao : List Posicao
     , resolvido : Bool
     }
 
@@ -25,7 +26,7 @@ view : Config msg -> Puzzle -> Html msg
 view config puzzle =
     let
         emConflito =
-            casasEmConflito (Rack.conflitos puzzle)
+            casasEmConflito (Rack.conflitos puzzle) ++ config.contradicao
 
         cabecalho =
             div [ class "board-corner" ] []
