@@ -13,7 +13,7 @@
 - **Nome do projeto:** Rack
 - **Nome do grupo:** Funciona na Minha Máquina
 - **Repositório:** branch `main` do repositório da equipe Funciona na Minha Máquina no Codehood; espelho público em https://github.com/mrodrigues14/trabalho-final-paradigmas
-- **Commit ou tag entregue:** `v1.0`
+- **Commit ou tag entregue:** `88b1f00`
 - **Ponto de partida:** remix original
 - **Slides da apresentação oral:** não há
 
