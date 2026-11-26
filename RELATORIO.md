@@ -12,8 +12,8 @@
 
 - **Nome do projeto:** Rack
 - **Nome do grupo:** Funciona na Minha Máquina
-- **Repositório:** [URL do repositório no Codehood, começando com https://]
-- **Commit ou tag entregue:** [hash do commit final]
+- **Repositório:** branch `main` do repositório da equipe Funciona na Minha Máquina no Codehood; espelho público em https://github.com/mrodrigues14/trabalho-final-paradigmas
+- **Commit ou tag entregue:** `v1.0`
 - **Ponto de partida:** remix original
 - **Slides da apresentação oral:** não há
 
@@ -66,7 +66,7 @@ make test-backend   # só pytest (rotas da API)
 make test-frontend  # só elm-test
 ```
 
-**Testado em:** Windows 11 com [navegador e versão]; [outro sistema do teste em máquina limpa]
+**Testado em:** Windows 11 com Google Chrome; macOS 27.0.1 com Google Chrome 158
 
 ## 4. Arquitetura
 
