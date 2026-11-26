@@ -397,6 +397,7 @@ documentação do FastAPI e do Pydantic, e o material da disciplina.
 | Claude Code | Criou os arquivos iniciais em branco, numa estrutura de módulos que ajudasse o projeto a funcionar (um arquivo `.pl` por parte do Prolog, `Rack.elm`, `Api.elm`, `Main.elm` e `View/` no Elm) | O grupo escreveu o conteúdo de cada arquivo e conferiu que o `swipl` carrega e o `elm make` compila |
 | Claude Code | Criou testes automatizados (plunit, pytest e elm-test) e explicou o que cada um cobre, para o grupo entender o que está sendo testado | O grupo leu os testes com a explicação da IA e rodou `make test` |
 | Claude Code | Mais eficiência no desenvolvimento, resolução de bugs e ideias de escopo | Cada sugestão foi discutida pelo grupo e testada antes de entrar no código |
+| Claude Code | Rascunho deste relatório a partir do código | Revisado pelo grupo, conferindo cada `arquivo:linha` |
 
 ## 12. Apresentação oral
 
