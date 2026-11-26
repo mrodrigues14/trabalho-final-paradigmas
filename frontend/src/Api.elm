@@ -13,7 +13,7 @@ module Api exposing
 
 {-| Comunicação com o backend do Rack (FastAPI + Prolog).
 
-O formato do JSON segue o contrato da API (PLANO.md, seção 3). Este módulo
+O formato do JSON segue o contrato da API (RELATORIO.md, seção 7). Este módulo
 só traduz entre esse formato e os tipos do `Rack`; nenhuma regra do jogo
 mora aqui.
 

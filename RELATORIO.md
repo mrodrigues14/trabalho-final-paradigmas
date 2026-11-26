@@ -377,7 +377,7 @@ configuração do Vite e do Tailwind, o `Makefile`, o `main.js` e a base do
 `style.css`, adaptada ao Rack. O jogo foi escrito pelo grupo: os arquivos
 `.pl` do Rack, `Rack.elm`, `Api.elm`, `Main.elm` e `View/`. Duas ideias
 vêm do `sudoku.pl` do modelo: a retirada de pistas mantendo a solução única
-(`dig_holes/4`, base de `enxugar/3`, `gerador.pl:181`) e a rotulagem
+(`dig_holes/4`, base de `enxugar/3`, `gerador.pl:182`) e a rotulagem
 aleatória (`random_labeling/1`, referência para `rotular_aleatorio/1`,
 `gerador.pl:100`).
 
@@ -393,7 +393,9 @@ documentação do FastAPI e do Pydantic, e o material da disciplina.
 | ---------- | ------------------ | ---------------------------------- |
 | Claude Code | Gerou arquivos do backend: a verificação das marcas em Prolog e a ponte Python-Prolog com as rotas da API | O grupo revisou o código, rodou e testou cada parte, e usou a IA para explicar o que foi gerado, e não só para fazer |
 | Claude Code | Gerou as mudanças do frontend que ligam a interface à API real e ao botão verificar | Revisão do código, compilação sem avisos e teste manual no navegador |
-| Claude Code | Criou testes e explicou o que cada um cobre, para o grupo entender o que está sendo testado | O grupo leu os testes com a explicação da IA e rodou `make test` |
+| Claude Code | Auxiliou no entendimento de algumas funções, parâmetros e comandos (predicados do SWI-Prolog e do CLP(FD), funções do Elm e dos pacotes `elm/http` e `elm/json`, comandos do `swipl`, `uv`, `npm` e `make`) | O grupo conferiu as explicações na documentação oficial e testou cada uso no próprio código |
+| Claude Code | Criou os arquivos iniciais em branco, numa estrutura de módulos que ajudasse o projeto a funcionar (um arquivo `.pl` por parte do Prolog, `Rack.elm`, `Api.elm`, `Main.elm` e `View/` no Elm) | O grupo escreveu o conteúdo de cada arquivo e conferiu que o `swipl` carrega e o `elm make` compila |
+| Claude Code | Criou testes automatizados (plunit, pytest e elm-test) e explicou o que cada um cobre, para o grupo entender o que está sendo testado | O grupo leu os testes com a explicação da IA e rodou `make test` |
 | Claude Code | Mais eficiência no desenvolvimento, resolução de bugs e ideias de escopo | Cada sugestão foi discutida pelo grupo e testada antes de entrar no código |
 | Claude Code | Rascunho deste relatório a partir do código | Revisado pelo grupo, conferindo cada `arquivo:linha` |
 
@@ -413,12 +415,65 @@ documentação do FastAPI e do Pydantic, e o material da disciplina.
 
 ## 13. Reflexão sobre os paradigmas
 
-[Parágrafo de Matheus Rodrigues da Silva sobre o Prolog das regras, com exemplo do próprio código.]
+**Matheus Rodrigues da Silva (regras em Prolog).** O que mais me marcou foi
+não escrever nenhum algoritmo para resolver o Rack. Em `rack_restricoes/2`
+(`rack.pl:6-16`) as três regras do enunciado viram, quase palavra por
+palavra, restrições: a carga é `sum(Fileira, #=, N)`, o sensor é a soma dos
+vizinhos e a refrigeração é `A + B #=< 1` entre casas vizinhas. Quem decide a
+ordem de busca é o `label/1`. O mesmo código responde perguntas diferentes:
+com as marcas do jogador ele resolve (`resolver/3`), e com `findall/3` e
+`limit/2` ele conta soluções para provar a unicidade (`contar_solucoes/3`).
+As marcas entram só por unificação, com três fatos (`rack.pl:62-64`), sem
+nenhum `if`. A parte difícil foi a contrária: pensar em termos de "o que é
+verdade" e não de "o que fazer", e entender por que a ordem das restrições
+não muda a resposta, só o tempo.
 
-[Parágrafo de Guilherme Costa Zanella sobre o gerador e a dica, com exemplo do próprio código.]
+**Guilherme Costa Zanella (gerador e dica).** Gerar um puzzle com solução
+única parecia exigir um algoritmo esperto, mas a solução ficou em inverter
+o problema: sortear a solução primeiro, colocar um sensor em toda casa livre
+(o que já garante a unicidade) e depois retirar sensores enquanto
+`contar_solucoes/3` continuar dando 1 (`enxugar/3`, `gerador.pl:182`). O
+`foldl/4` passa um puzzle novo de uma tentativa para a próxima, sem alterar
+nada no lugar. Na dica, `\+ consistente(...)` (`dica.pl:88`) é a própria
+definição de casa forçada: não existe jeito de satisfazer a regra com o
+valor oposto. Aprendi que o backtracking pode servir para explicar, e não
+só para buscar: a regra que falhou vira o motivo mostrado ao jogador. A
+limitação também veio daí: medir a dificuldade pelo raciocínio
+(`dificuldade/2`) funciona, mas ainda não foi ligado ao `gerar/2`.
 
-[Parágrafo de Anne de Capdeville sobre os tipos e decoders em Elm, com exemplo do próprio código.]
+**Anne de Capdeville (tipos e JSON em Elm).** Em Elm, a maior parte do
+trabalho foi escolher os tipos. `type Casa = Sensor Int | Aberta Marca`
+(`Rack.elm`) impede, já na compilação, um sensor marcado como servidor, e
+toda função que recebe uma `Casa` precisa tratar os dois casos. No
+`Api.elm`, o decoder do motivo lê o campo `kind` e escolhe o construtor com
+`Decode.andThen` (`motivoDecoder`, `Api.elm:212`): um `kind` desconhecido
+vira `Decode.fail`, e o erro chega à tela como `Result`, sem exceção. Achei
+interessante que o compilador funcionou como lista de tarefas: ao
+acrescentar um construtor, ele apontava cada `case` que faltava atualizar.
+O que mais estranhei foi não ter `null`, mas o `Maybe` deixou explícito em
+cada lugar o que pode faltar.
 
-[Parágrafo de Nathan Batista Santos sobre a interface em Elm, com exemplo do próprio código.]
+**Nathan Batista Santos (interface em Elm).** Na interface, a TEA deixou
+claro onde cada coisa acontece: a `view` só desenha a partir do `Model`, e
+toda mudança passa pelo `update`. O `noJogo` (`Main.elm:239`) recebe uma
+função `Jogo -> ( Jogo, Cmd Msg )`, e com isso clique, tecla, dica e
+desfazer só dizem como o jogo muda; a vitória é conferida num lugar só, com
+`Rack.venceu`, que é uma função pura. Para destacar a linha, a coluna ou a
+casa da dica, `apontaCasa` (`View/Tabuleiro.elm:170`) casa o construtor do
+`Motivo` em vez de comparar strings. O desfazer saiu quase de graça: como
+o puzzle é imutável, basta empilhar o anterior em `historico`. O mais
+difícil foi lidar com efeitos, como o cronômetro e o teclado, que em Elm
+só entram como `subscriptions`.
 
-[Parágrafo de Bruno Cruz Garcia Rosa sobre a integração e a verificação, com exemplo do próprio código.]
+**Bruno Cruz Garcia Rosa (integração e verificação).** Na integração, a
+regra foi manter o Python só como tradutor: o FastAPI valida o formato com
+Pydantic e o `prolog.py` monta a consulta. O resultado do Prolog volta como
+termo composto, e o `=..` o desmonta em nome e argumentos
+(`prolog.py:97-148`); do lado do Python, um `match` sobre `(kind, args)`
+faz o papel do casamento de padrões. Em `verificar/3` (`verificar.pl:38`),
+a verificação é um `findall/3` sobre `marca_errada/4`, e o que é uma marca
+errada são dois fatos, `contradiz(1, 0)` e `contradiz(2, 1)`. Essa
+simplicidade só vale porque o gerador garante solução única, o que deixamos
+registrado na seção 9. Ver o mesmo contrato descrito em Pydantic, em termos
+Prolog e em decoders Elm mostrou como cada paradigma representa o mesmo
+dado de um jeito diferente.
